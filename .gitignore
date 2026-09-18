@@ -1,0 +1,18 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Generated model and local runtime artifacts
+deepfake_model.h5
+*.keras
+uploads/
+outputs/
+
+# Local environment and editor files
+.env
+.vscode/
+*.log
