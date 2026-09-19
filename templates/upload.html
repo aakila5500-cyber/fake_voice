@@ -1,32 +1,297 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Deepfake Detector</title>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOXGUARD AI — Neural Deepfake Voice Detector</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
-<body style="
-        background-image: url('{{ url_for('static', filename='images/bc2.jpg') }}');
-        background-size: cover;
-        background-position: 0 -120px;">
-    <h1 class="heading">Deepfake Voice Detection</h1>
-    <div class="content">
-    <form class="form-div" method="POST" enctype="multipart/form-data" action="{{ url_for('predict') }}">
-        <input class="choose-file-button" type="file" name="file" accept="audio/*,.png,.jpg,.jpeg">
-        <input class="predict-button" type="submit" value="Predict">
-    </form>
-    {% if error %}
-    <p class="error-message">{{ error }}</p>
-    {% endif %}
-    {% if prediction %}
-    <h2 class="prediction-result">Prediction: {{ prediction }}</h2>
-    {% if image_path %}
-    <img class="uploaded-image" src="{{ url_for('uploaded_file', filename=image_path.split('/')[-1]) }}" alt="Uploaded waveform">
-    {% endif %}
-    {% endif %}
-
+<body>
+    <div class="app-background">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+        <div class="grid-overlay"></div>
     </div>
 
+    <div class="app-container">
+        <!-- Top Navigation -->
+        <header class="navbar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-microchip"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">VOXGUARD<span class="highlight">.AI</span></span>
+                    <span class="brand-subtitle">Deepfake Voice Analysis Engine</span>
+                </div>
+            </div>
+
+            <div class="nav-status-group">
+                <div class="status-badge" id="backend-status-badge">
+                    <span class="status-dot pulsing"></span>
+                    <span id="backend-status-text">Checking Backend...</span>
+                </div>
+                <div class="model-badge" id="model-status-badge">
+                    <i class="fa-solid fa-brain"></i>
+                    <span id="model-status-text">Model Ready</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Hero Header -->
+            <section class="hero-section">
+                <h1 class="hero-title">Detect Synthetic & Cloned <span class="gradient-text">Voice Audio</span></h1>
+                <p class="hero-description">
+                    Upload a voice note or record live audio to analyze acoustic spectral features with our TensorFlow deep convolutional neural network.
+                </p>
+            </section>
+
+            <!-- Input Studio (Tabs / Dual Mode) -->
+            <section class="input-studio-card glass-panel">
+                <div class="studio-tabs">
+                    <button class="tab-btn active" data-tab="upload-tab">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> File Upload
+                    </button>
+                    <button class="tab-btn" data-tab="record-tab">
+                        <i class="fa-solid fa-microphone-lines"></i> Live Mic Recorder
+                    </button>
+                    <button class="tab-btn" data-tab="sample-tab">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Quick Samples
+                    </button>
+                </div>
+
+                <!-- Tab 1: Upload Zone -->
+                <div class="tab-content active" id="upload-tab">
+                    <div class="dropzone-area" id="dropzone">
+                        <input type="file" id="file-input" accept="audio/*,.png,.jpg,.jpeg,.wav,.mp3,.m4a,.ogg,.webm" hidden>
+                        <div class="dropzone-content">
+                            <div class="upload-icon-wrapper">
+                                <i class="fa-solid fa-waveform-lines upload-icon"></i>
+                            </div>
+                            <h3>Drag & Drop Audio or Waveform Image</h3>
+                            <p class="dropzone-sub">Supports WAV, MP3, M4A, OGG, or PNG/JPG spectral images</p>
+                            <button class="btn btn-primary browse-btn" onclick="document.getElementById('file-input').click()">
+                                <i class="fa-solid fa-folder-open"></i> Browse Files
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Live Mic Recorder -->
+                <div class="tab-content" id="record-tab">
+                    <div class="recorder-container">
+                        <div class="record-visualizer-box">
+                            <canvas id="mic-canvas" width="600" height="120"></canvas>
+                            <div class="timer-display" id="record-timer">00:00</div>
+                        </div>
+
+                        <div class="recorder-controls">
+                            <button class="btn btn-record" id="record-btn">
+                                <i class="fa-solid fa-circle"></i> <span id="record-btn-text">Start Recording</span>
+                            </button>
+                            <button class="btn btn-secondary" id="stop-record-btn" disabled>
+                                <i class="fa-solid fa-stop"></i> Stop
+                            </button>
+                        </div>
+                        <p class="recorder-hint" id="recorder-status">Click Start to record voice directly from your microphone</p>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Quick Samples -->
+                <div class="tab-content" id="sample-tab">
+                    <div class="samples-grid">
+                        <div class="sample-card" onclick="loadSample('sample_real.png', 'Authentic Voice Sample (Biden Real)')">
+                            <div class="sample-icon real-icon"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="sample-info">
+                                <h4>Authentic Voice Waveform</h4>
+                                <p>Original un-manipulated human speech sample</p>
+                            </div>
+                            <button class="btn btn-outline btn-sm">Test Sample</button>
+                        </div>
+
+                        <div class="sample-card" onclick="loadSample('sample_fake.png', 'Synthetic Deepfake Sample (Biden-to-Obama)')">
+                            <div class="sample-icon fake-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="sample-info">
+                                <h4>Synthetic AI Cloned Sample</h4>
+                                <p>AI voice conversion generated deepfake sample</p>
+                            </div>
+                            <button class="btn btn-outline btn-sm">Test Sample</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected File Preview Bar (Hidden initially) -->
+                <div class="file-preview-card" id="file-preview-card" style="display: none;">
+                    <div class="preview-info">
+                        <i class="fa-solid fa-file-audio preview-icon"></i>
+                        <div class="preview-details">
+                            <span class="preview-filename" id="preview-filename">audio_sample.wav</span>
+                            <span class="preview-filesize" id="preview-filesize">1.4 MB</span>
+                        </div>
+                    </div>
+                    <div class="preview-actions">
+                        <audio id="audio-player" controls style="display: none;"></audio>
+                        <button class="btn btn-secondary btn-sm" id="remove-file-btn">
+                            <i class="fa-solid fa-xmark"></i> Remove
+                        </button>
+                        <button class="btn btn-accent" id="analyze-btn">
+                            <i class="fa-solid fa-bolt"></i> Analyze Voice Now
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading & Analysis Progress Overlay -->
+            <section class="loading-panel glass-panel" id="loading-panel" style="display: none;">
+                <div class="loading-spinner-wrapper">
+                    <div class="neural-spinner"></div>
+                </div>
+                <h3 class="loading-status-title" id="loading-status-title">Processing Acoustic Data</h3>
+                <div class="progress-steps">
+                    <div class="step-item active" id="step-1">
+                        <i class="fa-solid fa-check step-icon"></i> Audio Waveform Extraction
+                    </div>
+                    <div class="step-item" id="step-2">
+                        <i class="fa-solid fa-check step-icon"></i> Spectrogram Conversion
+                    </div>
+                    <div class="step-item" id="step-3">
+                        <i class="fa-solid fa-check step-icon"></i> Neural Conv2D Feature Classification
+                    </div>
+                </div>
+            </section>
+
+            <!-- Diagnostic Results Dashboard -->
+            <section class="results-panel glass-panel" id="results-panel" style="display: none;">
+                <div class="results-header">
+                    <h2><i class="fa-solid fa-shield-halved"></i> Forensic Analysis Report</h2>
+                    <span class="result-timestamp" id="result-timestamp">Analysis Completed</span>
+                </div>
+
+                <div class="results-grid">
+                    <!-- Gauge & Verdict Card -->
+                    <div class="verdict-card" id="verdict-card">
+                        <div class="gauge-container">
+                            <svg class="gauge-svg" viewBox="0 0 160 160">
+                                <circle class="gauge-bg" cx="80" cy="80" r="70"></circle>
+                                <circle class="gauge-progress" id="gauge-circle" cx="80" cy="80" r="70" stroke-dasharray="440" stroke-dashoffset="440"></circle>
+                            </svg>
+                            <div class="gauge-text">
+                                <span class="gauge-value" id="confidence-score">0%</span>
+                                <span class="gauge-label">Confidence</span>
+                            </div>
+                        </div>
+
+                        <div class="verdict-info">
+                            <div class="verdict-badge" id="verdict-badge">REAL VOICE</div>
+                            <p class="verdict-desc" id="verdict-desc">High probability of genuine human acoustic characteristics.</p>
+                        </div>
+                    </div>
+
+                    <!-- Waveform Spectrogram Preview Card -->
+                    <div class="spectrogram-card">
+                        <div class="spectrogram-header">
+                            <span><i class="fa-solid fa-chart-line"></i> Generated Waveform Spectrogram</span>
+                            <span class="badge-tag" id="spectrogram-filename">waveform.png</span>
+                        </div>
+                        <div class="spectrogram-image-box">
+                            <img id="waveform-img" src="" alt="Audio Waveform Spectrogram">
+                            <div class="scanline"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acoustic Metrics Grid -->
+                <div class="metrics-section">
+                    <h3><i class="fa-solid fa-sliders"></i> Deep Spectral Indicators</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-icon"><i class="fa-solid fa-wave-square"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-label">Pitch Stability</span>
+                                <span class="metric-value" id="metric-pitch">High (94.2%)</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-icon"><i class="fa-solid fa-border-all"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-label">Spectral Flatness</span>
+                                <span class="metric-value" id="metric-spectral">0.014 (Normal)</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-icon"><i class="fa-solid fa-volume-low"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-label">Noise Floor</span>
+                                <span class="metric-value" id="metric-noise">-58 dB</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-icon"><i class="fa-solid fa-arrows-split-up-and-left"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-label">Phase Coherence</span>
+                                <span class="metric-value" id="metric-phase">96.8%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions Bar -->
+                <div class="results-actions">
+                    <button class="btn btn-secondary" onclick="resetAnalysis()">
+                        <i class="fa-solid fa-rotate-left"></i> Analyze Another File
+                    </button>
+                    <button class="btn btn-outline" id="download-report-btn">
+                        <i class="fa-solid fa-download"></i> Export JSON Report
+                    </button>
+                </div>
+            </section>
+
+            <!-- History Log Section -->
+            <section class="history-section glass-panel">
+                <div class="history-header">
+                    <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Analysis History</h3>
+                    <button class="btn btn-link" onclick="clearHistory()"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Filename</th>
+                                <th>Verdict</th>
+                                <th>Confidence</th>
+                                <th>Size</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body">
+                            <tr class="empty-row">
+                                <td colspan="5">No recent voice analyses found</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>VOXGUARD AI &copy; 2026 — Advanced Deepfake Audio Forensic Engine powered by TensorFlow & Librosa</p>
+        </footer>
+    </div>
+
+    <!-- Custom JS Script -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
